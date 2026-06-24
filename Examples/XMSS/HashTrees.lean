@@ -85,10 +85,11 @@ termination_by trees => trees.length
 decreasing_by
   exact incLevel_length_lt f l r trees
 
-private theorem fromTreesO_isSome
+private theorem fromTreesO_exists
     (f : H → H → H)
     (trees : List (HashTree H)) :
-    trees ≠ [] → (fromTreesO f trees).isSome :=
+    trees ≠ [] →
+      ∃ tree, fromTreesO f trees = some tree :=
   match trees with
   | [] => by
       intro f
@@ -98,17 +99,109 @@ private theorem fromTreesO_isSome
   | l :: r :: trees => by
       intro _
       rw [fromTreesO]
-      exact fromTreesO_isSome f
+      exact fromTreesO_exists f
             (incLevel f (l :: r :: trees))
             (by simp [incLevel])
 termination_by trees.length
 decreasing_by
   exact incLevel_length_lt f l r trees
 
+private theorem fromTreesO_isSome
+    (f : H → H → H)
+    (trees : List (HashTree H)) :
+    trees ≠ [] →
+      (fromTreesO f trees).isSome :=
+  by
+    rw [Option.isSome_iff_exists]
+    apply fromTreesO_exists f trees
+
 def fromTrees
     (f : H → H → H)
     (trees : List (HashTree H))
     (trees_nonnil : trees ≠ []) : HashTree H :=
   (fromTreesO f trees).get (fromTreesO_isSome f trees trees_nonnil)
+
+private def fromTreesDivO
+    (f : H → H → H) :
+    List (HashTree H) → Option (HashTree H)
+  | [] =>
+      none
+  | [tree] =>
+      some tree
+  | a :: b :: rest =>
+      let trees := a :: b :: rest
+      let k := trees.length / 2
+
+      do
+        let l ← fromTreesDivO f (trees.take k)
+        let r ← fromTreesDivO f (trees.drop k)
+        return node (f l.value r.value) l r
+termination_by trees => trees.length
+decreasing_by
+  all_goals
+    simp
+    omega
+
+
+private theorem fromTreesDivO_exists_pow2
+    (f : H → H → H)
+    (trees : List (HashTree H))
+    (h : Nat) :
+    trees.length = 2 ^ h →
+      ∃ tree, (fromTreesDivO f trees) = some tree :=
+  match trees with
+  | [] => by
+      grind
+  | [tree] => by
+      intro _
+      exact ⟨tree, by simp [fromTreesDivO]⟩
+  | a :: b :: rest => by
+      intro hlen
+      cases h with
+      | zero =>
+           simp at hlen
+      | succ h =>
+          let trees := a :: b :: rest
+          let k := trees.length / 2
+
+          have htrees : trees.length = 2 ^ (h + 1) := by
+            simpa [trees] using hlen
+          have hk : k = 2 ^ h := by
+            dsimp [k]
+            rw [htrees]
+            simp [Nat.pow_succ]
+          have htake : (trees.take k).length = 2 ^ h := by
+            rw [List.length_take, hk, htrees, Nat.pow_succ]
+            omega
+          have hdrop : (trees.drop k).length = 2 ^ h := by
+            rw [List.length_drop, hk, htrees, Nat.pow_succ]
+            omega
+
+          rcases fromTreesDivO_exists_pow2 f (trees.take k) h htake with
+            ⟨l, hl⟩
+          rcases fromTreesDivO_exists_pow2 f (trees.drop k) h hdrop with
+            ⟨r, hr⟩
+
+          refine ⟨node (f l.value r.value) l r, ?_⟩
+          simp only [fromTreesDivO, hlen, Nat.pow_succ, trees, hk] at hl hr ⊢
+          simp [hl, hr]
+
+private theorem fromTreesDivO_isSome_pow2
+    (f : H → H → H)
+    (trees : List (HashTree H))
+    (h : Nat) :
+    trees.length = 2 ^ h → (fromTreesDivO f trees).isSome :=
+  by
+    rw [Option.isSome_iff_exists]
+    apply fromTreesDivO_exists_pow2
+
+private def fromTreesDiv
+    (f : H → H → H)
+    (trees : List (HashTree H))
+    (trees_pow2 : ∃ h : Nat, trees.length = 2 ^ h) :=
+  (fromTreesDivO f trees).get
+  (by
+    rcases trees_pow2 with ⟨h, hlen⟩
+    apply fromTreesDivO_isSome_pow2 f trees h hlen)
 
 end HashTree
