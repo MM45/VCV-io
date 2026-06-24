@@ -34,12 +34,81 @@ def IsPerfectlyBalanced : HashTree H → Prop
   | .leaf _ => True
   | .node _ l r => l.height = r.height
 
-/- def fromLeaves
- -     (leaves : List H)
- -     (f : Nat → Nat → H → H → H)
- -     (idx : Nat × Nat) : HashTree H :=
- -   f idx₁ idx₂
- -     (fromLeaves (firstHalf leaves) f (idx₁ + 1, 2 * idx₂))
- -     (fromLeaves (secondHalf leaves) f (idx₁ + 1, 2 * idx₁ + 1)) -/
+
+private def incLevel
+    (f : H → H → H) :
+    List (HashTree H) → List (HashTree H)
+  | [] => []
+  | [tree] => [tree]
+  | l :: r :: trees => (node (f l.value r.value) l r) :: incLevel f trees
+
+private theorem incLevel_length_le
+    (f : H → H → H)
+    (trees : List (HashTree H)) :
+    (incLevel f trees).length ≤ trees.length :=
+  match trees with
+  | [] => by
+      simp [incLevel]
+  | [tree] => by
+      simp [incLevel]
+  | l :: r :: trees => by
+      simp only [incLevel, List.length_cons]
+      have := incLevel_length_le f trees
+      omega
+
+private theorem incLevel_length_lt
+    (f : H → H → H)
+    (l r : HashTree H)
+    (trees : List (HashTree H)) :
+    (incLevel f (l :: r :: trees)).length < (l :: r :: trees).length :=
+  by
+    simp [incLevel]
+    have := (incLevel_length_le f trees)
+    omega
+
+private theorem incLevel_length_ge1
+    (f : H → H → H)
+    (l r : HashTree H)
+    (trees : List (HashTree H)) :
+    1 ≤ (incLevel f (l :: r :: trees)).length :=
+  by
+    simp [incLevel]
+
+private def fromTreesO
+    (f : H → H → H) :
+    List (HashTree H) → Option (HashTree H)
+  | [] => none
+  | [tree] => some tree
+  | l :: r :: trees =>
+      fromTreesO f (incLevel f (l :: r :: trees))
+termination_by trees => trees.length
+decreasing_by
+  exact incLevel_length_lt f l r trees
+
+private theorem fromTreesO_isSome
+    (f : H → H → H)
+    (trees : List (HashTree H)) :
+    trees ≠ [] → (fromTreesO f trees).isSome :=
+  match trees with
+  | [] => by
+      intro f
+      contradiction
+  | [tree] => by
+      simp [fromTreesO]
+  | l :: r :: trees => by
+      intro _
+      rw [fromTreesO]
+      exact fromTreesO_isSome f
+            (incLevel f (l :: r :: trees))
+            (by simp [incLevel])
+termination_by trees.length
+decreasing_by
+  exact incLevel_length_lt f l r trees
+
+def fromTrees
+    (f : H → H → H)
+    (trees : List (HashTree H))
+    (trees_nonnil : trees ≠ []) : HashTree H :=
+  (fromTreesO f trees).get (fromTreesO_isSome f trees trees_nonnil)
 
 end HashTree

@@ -1,6 +1,6 @@
-universe uα
+universe u
 
-def idxIter {α : Type uα}
+def idxIter {α : Type u}
     (f : Nat → α → α)
     (start steps : Nat)
     (x : α) : α :=
@@ -9,7 +9,7 @@ def idxIter {α : Type uα}
   | n + 1 => f (start + n) (idxIter f start n x)
 
 @[simp]
-theorem idxIter_zero {α : Type uα}
+theorem idxIter_zero {α : Type u}
     (f : Nat → α → α)
     (start : Nat)
     (x : α) :
@@ -17,14 +17,14 @@ theorem idxIter_zero {α : Type uα}
   by rfl
 
 @[simp]
-theorem idxIter_succ {α : Type uα}
+theorem idxIter_succ {α : Type u}
     (f : Nat → α → α)
     (start i : Nat)
     (x : α) :
     idxIter f start (i + 1) x = f (start + i) (idxIter f start i x) :=
   by rfl
 
-theorem idxIter_comp {α : Type uα}
+theorem idxIter_comp {α : Type u}
     (f : Nat → α → α)
     (start i j : Nat)
     (x : α) :
